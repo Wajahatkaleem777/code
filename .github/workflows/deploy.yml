@@ -1,4 +1,4 @@
-name: Deploy to Ubuntu VM
+name: CI/CD Deploy to VMware Ubuntu
 
 on:
   push:
@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the code
-      - name: Checkout repository
+      # 1️⃣ Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       # 2️⃣ Setup Node.js
@@ -25,12 +25,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Build the application
+      # 4️⃣ Build app
       - name: Build application
         run: npm run build
 
-      # 5️⃣ Create a deployment archive
-      - name: Create deployment archive
+      # 5️⃣ Create deployment package
+      - name: Package deployment
         run: |
           mkdir deploy
           cp -r dist deploy/
@@ -38,43 +38,34 @@ jobs:
           cp ecosystem.config.cjs deploy/
           tar -czf deploy.tar.gz -C deploy .
 
-      # 6️⃣ Setup SSH key for VM access
-      - name: Setup SSH key
+      # 6️⃣ Upload to VM
+      - name: Copy to VM
         run: |
-          echo "${{ secrets.VM_SSH_KEY }}" > key.pem
-          chmod 600 key.pem
-
-      # 7️⃣ Upload archive to the VM
-      - name: Upload archive to VM
-        run: |
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            deploy.tar.gz \
+          scp -o StrictHostKeyChecking=no deploy.tar.gz \
             ${{ ubuntu }}@${{ 192.168.198.129 }}:/tmp/
 
-      # 8️⃣ Deploy on VM
+      # 7️⃣ Deploy on VM
       - name: Deploy on VM
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no \
-            ${{ ubuntu }}@${{ 192.168.198.129 }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
 
             set -e
             cd /var/www/express-app
 
-            echo "Extracting new build..."
+            echo "Extracting build..."
             tar -xzf /tmp/deploy.tar.gz
             rm /tmp/deploy.tar.gz
 
             echo "Installing production dependencies..."
             npm ci --omit=dev
 
-            # Create .env file if missing
+            # Create .env if missing
             if [ ! -f .env ]; then
-              echo "Creating .env file..."
               echo "NODE_ENV=production" > .env
               echo "PORT=8000" >> .env
             fi
 
-            # Restart or start the app with PM2
             echo "Restarting app with PM2..."
             if pm2 describe express-app > /dev/null 2>&1; then
               pm2 reload ecosystem.config.cjs --update-env
@@ -83,9 +74,9 @@ jobs:
             fi
 
             pm2 save
-            echo "✅ Deployment completed"
+            echo "✅ Deployment complete"
           EOF
 
-      # 9️⃣ Cleanup local temporary files
-      - name: Cleanup
-        run: rm -f key.pem deploy.tar.gz
+      # 8️⃣ Cleanup
+      - name: Cleanup local files
+        run: rm -f deploy.tar.gz
