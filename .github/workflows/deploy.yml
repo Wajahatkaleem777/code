@@ -33,21 +33,7 @@ jobs:
           cp ecosystem.config.cjs deploy/
           tar -czf deploy.tar.gz -C deploy .
 
-      - name: Setup SSH key
-        run: |
-          echo "${{ secrets.VM_SSH_KEY }}" > key.pem
-          chmod 600 key.pem
-
-      - name: Upload files to VM
-        run: |
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            deploy.tar.gz \
-            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:/tmp/
-
-      - name: Deploy on VM
-        run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no \
-            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} << 'EOF'
+     
 
           set -e
           cd /var/www/express-app
