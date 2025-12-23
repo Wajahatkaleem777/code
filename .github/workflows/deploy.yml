@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-   runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
       # 1️⃣ Checkout the repository
@@ -60,7 +60,6 @@ jobs:
             echo "Installing production dependencies..."
             npm ci --omit=dev
 
-            # Create .env if missing
             if [ ! -f .env ]; then
               echo "NODE_ENV=production" > .env
               echo "PORT=8000" >> .env
